@@ -113,4 +113,8 @@ Un message indiquant qu’un modèle normal à une seule tête a été généré
 
 Utilisez **Annuler**. Rétablir est disponible si vous annulez trop loin.
 
+## L’application a planté ou s’est rechargée
+
+Rouvrez Kromacut dans le même navigateur ou la même application de bureau. La dernière image de travail revient avec jusqu’à 30 étapes d’annulation et 30 de rétablissement. Les ajustements non appliqués, les sélections de recadrage, les brouillons de texte et les modèles 3D construits ne reviennent pas : reconstruisez le modèle. Rien n’est restauré après **Retirer l’image**, dans une fenêtre privée qui efface les données du site, ni après l’effacement des données de l’application ou du navigateur. Voir [Annuler, télécharger et vider](loading-images#undo-download-and-clear).
+
 Suite : [FAQ](faq).

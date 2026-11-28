@@ -54,6 +54,8 @@ Usa el restablecimiento de **Ajustes de impresión 3D** para volver a los valore
 
 Los ajustes recordados son locales al navegador/sitio o aplicación de escritorio actual. No son una copia de la ilustración ni un proyecto completo, y otros navegadores o el escritorio no tienen por qué compartirlos. Exporta paletas y perfiles importantes antes de borrar datos. Cargar un perfil restaura filamentos y evidencia, no una imagen ni una malla ya generada.
 
+Los perfiles de filamento, con sus datos de calibración y de apariencia, se guardan en el almacenamiento IndexedDB del navegador, mucho mayor que los pocos megabytes del almacenamiento normal del sitio. Los perfiles guardados por versiones anteriores se trasladan allí automáticamente, sin cambios, la primera vez que se abre esta versión. Si IndexedDB no está disponible, como en algunas ventanas privadas, los perfiles se quedan en el almacenamiento normal del sitio, donde los conjuntos de calibración muy grandes pueden no guardarse. La copia de recuperación de la imagen de trabajo también se guarda en IndexedDB; consulta [Deshacer, descargar y borrar](loading-images#undo-download-and-clear).
+
 ## Estado guardado de pintura automática
 
 Se conservan entre sesiones los siguientes ajustes:

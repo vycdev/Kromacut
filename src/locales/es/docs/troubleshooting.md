@@ -113,4 +113,8 @@ Un aviso de que se ha creado un modelo normal de un solo cabezal significa que e
 
 Usa **Deshacer**. Rehacer está disponible si deshaces demasiado.
 
+## La aplicación se ha cerrado inesperadamente o se ha recargado
+
+Vuelve a abrir Kromacut en el mismo navegador o en la misma aplicación de escritorio. La última imagen de trabajo vuelve con hasta 30 pasos de Deshacer y 30 de Rehacer. Los ajustes sin aplicar, las selecciones de recorte, los borradores de texto y los modelos 3D generados no vuelven, así que genera el modelo de nuevo. No se restaura nada después de **Quitar imagen**, en una ventana privada que descarta los datos del sitio ni después de borrar los datos de la aplicación o del navegador. Consulta [Deshacer, descargar y borrar](loading-images#undo-download-and-clear).
+
 Siguiente: [Preguntas frecuentes](faq).

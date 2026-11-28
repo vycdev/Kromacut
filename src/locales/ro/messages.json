@@ -88,6 +88,7 @@
   },
   "profiles": {
     "saveFailed": "Modificările profilului nu au putut fi salvate. Profilurile existente și selecția au rămas neschimbate; eliberează spațiu în browser și încearcă din nou.",
+    "backgroundSaveFailed": "Ultimele modificări ale profilului nu au putut fi stocate și se vor pierde când închizi Kromacut. Exportă profilurile ca să le păstrezi, apoi eliberează spațiu în browser.",
     "estimated": "{{name}} încărcat — distanțele de acoperire sunt estimate din culoare. Calibrează înainte de imprimare.",
     "unsavedExport": "Modificările nesalvate ale filamentelor au fost exportate ca profil nou, fără date de calibrare incompatibile.",
     "exportFailed": "Nu s-a putut exporta profilul de filamente. Încearcă să salvezi din nou.",

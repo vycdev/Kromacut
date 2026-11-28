@@ -54,6 +54,8 @@ Use Repor em **Definições de impressão 3D** para voltar aos valores predefini
 
 As definições são locais ao navegador/site ou aplicação atual. Não são cópia da imagem nem projeto completo; outros navegadores e a aplicação não têm de as partilhar. Exporte paletas e perfis importantes antes de limpar dados. Carregar um perfil restaura filamentos e evidências, não imagem nem malha pronta.
 
+Os perfis de filamento, com os dados de calibração e de aparência, são guardados no armazenamento IndexedDB do navegador, muito maior do que os poucos megabytes do armazenamento normal do site. Os perfis guardados por versões anteriores passam para lá automaticamente, sem alterações, na primeira abertura desta versão. Se o IndexedDB não estiver disponível, como em algumas janelas privadas, os perfis ficam no armazenamento normal do site, onde conjuntos de calibração muito grandes podem não ser guardados. A cópia de recuperação da imagem de trabalho também fica no IndexedDB; consulte [Anular, transferir e limpar](loading-images#undo-download-and-clear).
+
 ## Estado guardado de pintura automática
 
 As definições preservadas entre sessões incluem:

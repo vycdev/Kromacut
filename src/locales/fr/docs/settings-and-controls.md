@@ -54,6 +54,8 @@ Utilisez le bouton de réinitialisation de **Paramètres d’impression 3D** pou
 
 Les paramètres mémorisés sont locaux au navigateur/site actuel ou à l’application de bureau. Ils ne constituent ni une sauvegarde de l’illustration ni un projet complet enregistré, et les navigateurs distincts ou l’application de bureau ne les partagent pas nécessairement. Exportez les palettes et profils importants avant d’effacer les données. Charger un profil restaure ses filaments et ses observations, pas une image ni un maillage déjà généré.
 
+Les profils de filament, avec leurs données de calibration et d’apparence, sont conservés dans le stockage IndexedDB du navigateur, bien plus grand que les quelques mégaoctets du stockage ordinaire du site. Les profils enregistrés par les versions précédentes y sont déplacés automatiquement, sans modification, à la première ouverture de cette version. Si IndexedDB n’est pas disponible, comme dans certaines fenêtres privées, les profils restent dans le stockage ordinaire du site, où de très grands jeux de calibration peuvent ne pas s’enregistrer. La copie de récupération de l’image de travail est aussi conservée dans IndexedDB ; voir [Annuler, télécharger et vider](loading-images#undo-download-and-clear).
+
 ## État de peinture automatique enregistré
 
 Les paramètres de peinture automatique sont conservés entre sessions, notamment :

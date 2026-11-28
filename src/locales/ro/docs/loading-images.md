@@ -82,10 +82,10 @@ Nu folosi **Șterge** pe mostră în acest scop: remapează culorile, nu face pi
 
 ## Anulare, descărcare și golire
 
-**Anulează** și **Refă** parcurg modificările confirmate ale imaginii: încărcare, decupare, redimensionare, integrarea ajustărilor, cuantizare, eliminarea ditheringului, editarea mostrelor și retușuri. Nu reprezintă istoricul fiecărei setări sau mișcări de glisor. O editare nouă șterge calea de refacere. Istoricul aparține sesiunii curente a aplicației, deci salvează imaginea dacă ai nevoie de ea ulterior.
+**Anulează** și **Refă** parcurg modificările confirmate ale imaginii: încărcare, decupare, redimensionare, integrarea ajustărilor, cuantizare, eliminarea ditheringului, editarea mostrelor și retușuri. Nu reprezintă istoricul fiecărei setări sau mișcări de glisor. O editare nouă șterge calea de refacere. Kromacut păstrează și o copie de recuperare a imaginii de lucru și a ultimilor 30 de pași de anulare și 30 de refacere pe acest dispozitiv, care revin după o blocare sau o reîncărcare. Copia nu este o copie de siguranță și se pierde când datele aplicației sau ale browserului sunt șterse; descarcă imaginea dacă vrei să o păstrezi.
 
 **Descarcă imaginea** salvează imaginea de lucru de bază ca PNG, la rezoluția pixelilor imaginii. Nu include zoomul, tabla de șah, mânerele de decupare sau ciornele de text. Aplică textul și folosește **Aplică ajustările** înainte, pentru a le include. Aplicația desktop folosește un dialog de salvare; în browser, locația urmează setările sale de descărcare.
 
-**Elimină imaginea** golește spațiul de lucru, nu setările. Nu te baza pe ea ca editare reversibilă: nu adaugă imaginea eliminată ca pas nou de anulare. Descarcă întâi o copie dacă trebuie să o păstrezi.
+**Elimină imaginea** golește spațiul de lucru, nu setările. Nu te baza pe ea ca editare reversibilă: nu adaugă imaginea eliminată ca pas nou de anulare. Descarcă întâi o copie dacă trebuie să o păstrezi. Eliminarea imaginii șterge și copia de recuperare, deci nu reapare la următoarea deschidere a Kromacut.
 
 În continuare: [Ajustările imaginii](image-adjustments).

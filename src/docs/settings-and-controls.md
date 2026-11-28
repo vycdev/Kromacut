@@ -54,6 +54,8 @@ Use the reset button in **3D Print Settings** if you want to return to the secti
 
 Remembered settings are local to the current browser/site or desktop app. They are not a backup of the artwork or a complete saved project, and separate browsers or the desktop app need not share them. Export important palettes and filament profiles before clearing app/browser data. Loading a profile restores its filaments and evidence, not an image or a ready-built mesh.
 
+Filament profiles, with their calibration and appearance evidence, are kept in the browser's larger IndexedDB storage rather than the few megabytes of ordinary site storage. Profiles saved by earlier versions move there automatically the first time this version opens, unchanged. If IndexedDB is unavailable, as in some private windows, profiles stay in ordinary site storage, where very large calibration sets can fail to save. The recovery copy of the working image is kept in IndexedDB too; see [Undo, Download, And Clear](loading-images#undo-download-and-clear).
+
 ## Saved Auto-paint State
 
 Auto-paint settings are preserved across sessions, including:

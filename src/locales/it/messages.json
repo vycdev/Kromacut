@@ -88,6 +88,7 @@
   },
   "profiles": {
     "saveFailed": "Impossibile salvare le modifiche al profilo. Profili esistenti e selezione non sono stati modificati; libera spazio nel browser e riprova.",
+    "backgroundSaveFailed": "Le ultime modifiche al profilo non sono state salvate e andranno perse alla chiusura di Kromacut. Esporta i profili per conservarli, poi libera spazio nel browser.",
     "estimated": "{{name}} caricato — le distanze di copertura sono stimate dal colore. Calibra prima di stampare.",
     "unsavedExport": "Modifiche ai filamenti non salvate esportate come nuovo profilo senza dati di calibrazione incompatibili.",
     "exportFailed": "Impossibile esportare il profilo filamenti. Prova a salvare di nuovo.",

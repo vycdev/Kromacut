@@ -113,4 +113,8 @@ Um aviso a indicar que foi criado um modelo normal de uma só cabeça significa 
 
 Use **Anular**. Refazer está disponível se anular demasiado.
 
+## A aplicação falhou ou foi recarregada
+
+Abra novamente o Kromacut no mesmo navegador ou na mesma aplicação de ambiente de trabalho. A última imagem de trabalho volta com até 30 passos de Anular e 30 de Refazer. Ajustes não aplicados, seleções de recorte, rascunhos de texto e modelos 3D construídos não voltam, por isso construa o modelo novamente. Nada é restaurado depois de **Remover imagem**, numa janela privada que descarta os dados do site ou depois de apagar os dados da aplicação ou do navegador. Consulte [Anular, transferir e limpar](loading-images#undo-download-and-clear).
+
 Seguinte: [Perguntas frequentes](faq).

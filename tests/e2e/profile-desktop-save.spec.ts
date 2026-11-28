@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { fakeDesktopAfterLoad } from './helpers/fakeDesktop';
+import { storedProfilesText } from './helpers/appStorage';
 
 type Outcome = 'cancel' | 'failure' | 'success';
 type Desktop = Window & {
@@ -25,7 +26,7 @@ test('@smoke filament profile export preserves browser downloads and uses deskto
         );
     await expect(page.getByText(/1 imported|1 overwritten/)).toBeVisible();
     const button = page.getByTitle('Export current filaments as .kfil file', { exact: true });
-    const before = await page.evaluate(() => localStorage.getItem('kromacut.autopaint.profiles'));
+    const before = await storedProfilesText(page);
 
     const downloadPromise = page.waitForEvent('download');
     await button.click();
@@ -104,9 +105,7 @@ test('@smoke filament profile export preserves browser downloads and uses deskto
                 ...browserProfile,
                 updatedAt: expect.any(Number),
             });
-        expect(await page.evaluate(() => localStorage.getItem('kromacut.autopaint.profiles'))).toBe(
-            before
-        );
+        expect(await storedProfilesText(page)).toBe(before);
     }
     expect(nativeDownloads).toEqual([]);
     expect(errors).toEqual([]);

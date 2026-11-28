@@ -88,6 +88,7 @@
   },
   "profiles": {
     "saveFailed": "Profiländerungen konnten nicht gespeichert werden. Vorhandene Profile und Auswahl blieben unverändert; geben Sie Browserspeicher frei und versuchen Sie es erneut.",
+    "backgroundSaveFailed": "Die letzten Profiländerungen konnten nicht gespeichert werden und gehen verloren, wenn Kromacut geschlossen wird. Exportieren Sie Ihre Profile, um sie zu behalten, und geben Sie dann Browserspeicher frei.",
     "estimated": "{{name}} geladen – Deckdistanzen sind aus der Farbe geschätzt. Vor dem Drucken kalibrieren.",
     "unsavedExport": "Ungespeicherte Filamentänderungen als neues Profil ohne inkompatible Kalibrierdaten exportiert.",
     "exportFailed": "Filamentprofil konnte nicht exportiert werden. Bitte erneut speichern.",

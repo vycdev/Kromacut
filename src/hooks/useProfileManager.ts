@@ -36,6 +36,7 @@ import {
 import { deduplicateName } from '../lib/nameUtils';
 import { saveBlobToFile } from './saveBlobToFile';
 import { persistProfilesBeforeCommit } from '../lib/profilePersistence';
+import { subscribeToProfileSaveFailures } from '../lib/profileStorage';
 import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
 
 /** Built-in template profile ids are reserved — imported files can never claim them. */
@@ -43,6 +44,8 @@ const RESERVED_PROFILE_IDS = new Set(TEMPLATE_PROFILES.map((p) => p.id));
 
 const PROFILE_STORAGE_FAILURE_MESSAGE =
     'Profile changes could not be saved. Existing profiles and selection were left unchanged; free browser storage and try again.';
+const PROFILE_BACKGROUND_SAVE_FAILURE_MESSAGE =
+    'Recent profile changes could not be stored and will be lost when Kromacut closes. Export your profiles to keep them, then free browser storage.';
 
 export interface UseProfileManagerOptions {
     /** Current filament list (used for save/export operations). */
@@ -465,6 +468,14 @@ export function useProfileManager({
             e.target.value = '';
         },
         [importText]
+    );
+
+    useEffect(
+        () =>
+            subscribeToProfileSaveFailures(() =>
+                setImportFeedback(PROFILE_BACKGROUND_SAVE_FAILURE_MESSAGE)
+            ),
+        []
     );
 
     // Clear import feedback after a few seconds

@@ -113,4 +113,8 @@ Ein Hinweis, dass ein normales Einkopfmodell erstellt wurde, bedeutet: Die Mehrk
 
 Nutze **Rückgängig**. Mit Wiederholen kannst du zu weit zurückgenommene Schritte wiederherstellen.
 
+## Die App ist abgestürzt oder wurde neu geladen
+
+Öffne Kromacut erneut im selben Browser oder in derselben Desktop-App. Das letzte Arbeitsbild kommt mit bis zu 30 Rückgängig- und 30 Wiederholen-Schritten zurück. Nicht angewendete Anpassungen, Zuschnittauswahlen, Textentwürfe und 3D-Modelle kommen nicht zurück; erstelle das Modell neu. Nach **Bild entfernen**, in einem privaten Fenster, das Websitedaten verwirft, oder nach dem Löschen von App- oder Browserdaten wird nichts wiederhergestellt. Siehe [Rückgängig, Herunterladen und Leeren](loading-images#undo-download-and-clear).
+
 Weiter: [Häufige Fragen](faq).

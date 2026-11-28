@@ -82,10 +82,10 @@ No uses **Eliminar** en la muestra para esto: reasigna colores en vez de volver 
 
 ## Deshacer, descargar y borrar
 
-**Deshacer** y **Rehacer** recorren cambios confirmados como carga, recorte, redimensionamiento, aplicación de ajustes, cuantización, eliminación de tramado, ediciones de muestras y retoques. No son un historial de cada ajuste o movimiento de deslizador. Una nueva edición borra la ruta de rehacer. El historial pertenece a la sesión actual, así que guarda la imagen si la necesitarás después.
+**Deshacer** y **Rehacer** recorren cambios confirmados como carga, recorte, redimensionamiento, aplicación de ajustes, cuantización, eliminación de tramado, ediciones de muestras y retoques. No son un historial de cada ajuste o movimiento de deslizador. Una nueva edición borra la ruta de rehacer. Kromacut también guarda en este dispositivo una copia de recuperación de la imagen de trabajo y de sus últimos 30 pasos de Deshacer y 30 de Rehacer, que vuelven tras un cierre inesperado o una recarga. La copia no es una copia de seguridad y se pierde al borrar los datos de la aplicación o del navegador; descarga la imagen si quieres conservarla.
 
 **Descargar imagen** guarda la imagen de trabajo subyacente como PNG a su resolución de píxeles. Excluye zoom, cuadriculado, controles de recorte y borradores de texto. Confirma el texto y **Aplica los ajustes** antes para incluirlos. En escritorio se abre un diálogo de guardado; en navegador depende de los ajustes de descarga.
 
-**Quitar imagen** vacía el espacio de trabajo, no los ajustes. No cuentes con que sea reversible: no añade la imagen borrada como nuevo paso de Deshacer. Descarga una copia antes si necesitas conservarla.
+**Quitar imagen** vacía el espacio de trabajo, no los ajustes. No cuentes con que sea reversible: no añade la imagen borrada como nuevo paso de Deshacer. Descarga una copia antes si necesitas conservarla. Quitar la imagen también borra la copia de recuperación, así que no vuelve a aparecer al abrir Kromacut de nuevo.
 
 Siguiente: [Ajustes de imagen](image-adjustments).

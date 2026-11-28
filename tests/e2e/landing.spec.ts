@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { storedProfilesText } from './helpers/appStorage';
 
 test.describe('landing page smoke @smoke', () => {
     test('all showcase cards share headers, captions, image sizing and full-size links across screen sizes', async ({ page }, testInfo) => {
@@ -147,7 +148,8 @@ test.describe('landing page smoke @smoke', () => {
         await page.goto('/app');
         await expect(page.getByTestId('image-file-input')).toBeAttached();
         await expect.poll(() => page.evaluate((values) => {
-            const stableEntries = Object.entries(values).filter(([key]) => key !== 'kromacut.autopaint.v1');
+            // Profiles move to IndexedDB on the app's first start; checked below.
+            const stableEntries = Object.entries(values).filter(([key]) => key !== 'kromacut.autopaint.v1' && key !== 'kromacut.autopaint.profiles');
             const autoPaint = JSON.parse(localStorage.getItem('kromacut.autopaint.v1') ?? '{}');
             return stableEntries.every(([key, value]) => localStorage.getItem(key) === value)
                 && autoPaint.schemaVersion === 2
@@ -155,6 +157,8 @@ test.describe('landing page smoke @smoke', () => {
                 && autoPaint.filaments.length === 0
                 && document.documentElement.classList.contains('dark');
         }, persisted)).toBe(true);
+        await expect.poll(() => page.evaluate(() => localStorage.getItem('kromacut.autopaint.profiles'))).toBeNull();
+        expect(await storedProfilesText(page)).toBe(persisted['kromacut.autopaint.profiles']);
 
         await page.goto('/');
         await expect(page).toHaveURL(/\/app$/);

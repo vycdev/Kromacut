@@ -82,10 +82,10 @@ N’utilisez pas **Supprimer** sur un échantillon dans ce but : cela réassocie
 
 ## Annuler, télécharger et vider
 
-**Annuler** et **Rétablir** parcourent les modifications validées de l’image : chargement, recadrage, redimensionnement, application des réglages, quantification, détramage, modifications d’échantillons et retouches. Ils ne conservent pas l’historique de chaque réglage ou mouvement de curseur. Une nouvelle modification efface la branche de rétablissement. L’historique appartient à la session actuelle : enregistrez l’image si vous en aurez besoin plus tard.
+**Annuler** et **Rétablir** parcourent les modifications validées de l’image : chargement, recadrage, redimensionnement, application des réglages, quantification, détramage, modifications d’échantillons et retouches. Ils ne conservent pas l’historique de chaque réglage ou mouvement de curseur. Une nouvelle modification efface la branche de rétablissement. Kromacut garde aussi sur cet appareil une copie de récupération de l’image de travail et de ses 30 dernières étapes d’annulation et de rétablissement, qui reviennent après un plantage ou un rechargement. Cette copie n’est pas une sauvegarde et disparaît si les données de l’application ou du navigateur sont effacées ; téléchargez l’image si vous voulez la conserver.
 
 **Télécharger l’image** enregistre l’image de travail sous-jacente en PNG à sa résolution en pixels. Le zoom, le damier, les poignées de recadrage et les brouillons de texte sont exclus. Validez le texte et **Appliquez les réglages** d’abord pour les inclure. Sur ordinateur, une boîte d’enregistrement s’ouvre ; dans le navigateur, l’emplacement dépend des paramètres de téléchargement.
 
-**Retirer l’image** vide l’espace de travail, pas les réglages. Ne considérez pas cette action comme réversible : elle n’ajoute pas l’image retirée à une nouvelle étape d’annulation. Téléchargez d’abord une copie si vous souhaitez la conserver.
+**Retirer l’image** vide l’espace de travail, pas les réglages. Ne considérez pas cette action comme réversible : elle n’ajoute pas l’image retirée à une nouvelle étape d’annulation. Téléchargez d’abord une copie si vous souhaitez la conserver. Retirer l’image supprime aussi la copie de récupération : elle ne réapparaît pas à la prochaine ouverture de Kromacut.
 
 Suite : [Réglages d’image](image-adjustments).
