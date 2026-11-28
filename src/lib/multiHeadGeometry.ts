@@ -188,6 +188,11 @@ export async function* generateMultiHeadMeshes(
             mesh.userData.kromacutFilamentHex = filament.color;
             mesh.userData.kromacutPreviewVirtualHex = previewHex;
             mesh.userData.kromacutPreviewFilamentHex = filament.color;
+            // Name the 3MF part like its Head Schedule entry: 1-based print
+            // layer, head, and the filament name (hex when it has none).
+            mesh.userData.kromacutPartName = `Layer ${layerIndex + 1} · Head ${nozzleIndex} · ${
+                filament.name || filament.color
+            }`;
             yield { mesh, layerIndex, activePixelCount: region.pixels.length, metrics };
             options.onLayerProgress?.(layerIndex, {
                 phase: 'walls',
